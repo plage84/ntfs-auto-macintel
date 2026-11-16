@@ -1,25 +1,25 @@
 #!/bin/bash
-# Installe le montage automatique NTFS (lecture-écriture) sur macOS.
-# Usage : ./install.sh   (demande ton mot de passe admin)
+# Installs automatic read-write NTFS mounting on macOS.
+# Usage: ./install.sh   (asks for your admin password)
 set -e
 cd "$(dirname "$0")"
 
-if [ "$(uname)" != "Darwin" ]; then echo "Ce script est prévu pour macOS."; exit 1; fi
+if [ "$(uname)" != "Darwin" ]; then echo "This script is meant for macOS."; exit 1; fi
 
 NTFS3G=""
 for p in /opt/local/bin/ntfs-3g /usr/local/bin/ntfs-3g /opt/homebrew/bin/ntfs-3g; do
   [ -x "$p" ] && NTFS3G="$p" && break
 done
 if [ -z "$NTFS3G" ]; then
-  echo "ntfs-3g est introuvable. Installe-le d'abord :"
-  echo "  - Mac Intel / ancien macOS : MacPorts (macports.org) puis  sudo port install ntfs-3g"
-  echo "  - Sinon : Homebrew puis    brew install gromgit/fuse/ntfs-3g-mac"
-  echo "et installe macFUSE (macfuse.github.io), puis autorise-le dans Réglages Système > Confidentialité et sécurité."
+  echo "ntfs-3g not found. Install it first:"
+  echo "  - Intel Mac / older macOS: MacPorts (macports.org), then  sudo port install ntfs-3g"
+  echo "  - Otherwise: Homebrew, then  brew install gromgit/fuse/ntfs-3g-mac"
+  echo "and install macFUSE (macfuse.github.io), then allow it in System Settings > Privacy & Security."
   exit 1
 fi
-echo "ntfs-3g trouvé : $NTFS3G"
+echo "ntfs-3g found: $NTFS3G"
 
-echo "Installation du script et du service (mot de passe admin demandé)..."
+echo "Installing the script and the service (admin password required)..."
 sudo mkdir -p /usr/local/bin
 sudo cp ntfs-auto.sh /usr/local/bin/ntfs-auto.sh
 sudo chmod +x /usr/local/bin/ntfs-auto.sh
@@ -31,12 +31,12 @@ sudo launchctl load -w /Library/LaunchDaemons/local.ntfs-auto.plist
 
 cat <<'EOF'
 
-Service installé.
+Service installed.
 
-À faire UNE FOIS dans Réglages Système > Confidentialité et sécurité > Accès complet au disque :
-  ajouter  ntfs-3g  et  /bin/bash   (bouton +, puis Cmd+Maj+G pour saisir le chemin)
-Sans cette autorisation, le service reçoit "Operation not permitted".
+ONE-TIME step in System Settings > Privacy & Security > Full Disk Access:
+  add  ntfs-3g  and  /bin/bash   (click +, then press Cmd+Shift+G to type the path)
+Without it the service gets "Operation not permitted".
 
-Ensuite : branche un disque NTFS, attends 20 secondes, il se monte en lecture-écriture.
-Journal : cat /var/log/ntfs-auto.log
+Then plug in an NTFS drive and wait about 20 seconds: it mounts read-write.
+Log: cat /var/log/ntfs-auto.log
 EOF
