@@ -1,63 +1,63 @@
-# ntfs-auto-mac
+# ntfs-auto-macintel
 
-Montage **automatique en lecture-écriture** des disques NTFS sur macOS, avec [ntfs-3g](https://github.com/tuxera/ntfs-3g) et [macFUSE](https://macfuse.github.io). Tu branches le disque, il apparaît en lecture-écriture, sans toucher au Terminal.
+**Automatic read-write mounting** of NTFS drives on macOS, using [ntfs-3g](https://github.com/tuxera/ntfs-3g) and [macFUSE](https://macfuse.github.io). Plug in the drive and it shows up read-write, with no Terminal commands.
 
-Pensé et testé pour un **iMac Intel sous macOS Monterey 12**, où Homebrew n'est plus pris en charge (installation via MacPorts). Devrait aussi servir sur d'autres versions, mais je ne l'ai pas testé ailleurs.
+Built and tested on an **Intel iMac running macOS Monterey 12**, where Homebrew is no longer supported (installation goes through MacPorts). It may work on other versions, but I haven't tested it elsewhere.
 
-## Ce que ça fait
+## What it does
 
-- Un petit service (`launchd`) surveille les disques toutes les 5 secondes.
-- Pour chaque partition NTFS (les exFAT/FAT sont ignorées) : démontage du montage en lecture seule de macOS, puis montage avec ntfs-3g.
-- Ajoute dans `/etc/fstab` une ligne `UUID=… none ntfs rw,noauto` par disque, pour que macOS arrête de le monter tout seul. Seul le tout premier branchement d'un disque montre quelques va-et-vient.
-- Option `auto_xattr` : évite l'erreur du Finder « impossible de terminer l'opération » (attributs étendus non gérés par NTFS). Des fichiers cachés `._…` peuvent apparaître.
-- Si tu éjectes le disque dans le Finder, le script l'éjecte vraiment, et ne le remonte pas avant que tu l'aies débranché puis rebranché. (Ce comportement n'a pas encore été validé de bout en bout sur la machine de test.)
+- A small `launchd` service checks for drives every 5 seconds.
+- For each NTFS partition (exFAT/FAT are ignored): it unmounts the read-only mount made by macOS, then mounts the drive with ntfs-3g.
+- It adds one `UUID=… none ntfs rw,noauto` line per drive to `/etc/fstab`, so macOS stops mounting it by itself. Only the very first plug-in of a drive shows a few mount/unmount flips.
+- The `auto_xattr` option avoids the Finder error "the operation can't be completed" (extended attributes aren't supported by NTFS). Hidden `._…` files may appear.
+- If you eject the drive in the Finder, the script really ejects the disk and does not remount it until you unplug and replug it. (This behaviour has not yet been validated end to end on the test machine.)
 
-## Prérequis
+## Requirements
 
-1. **ntfs-3g** :
-   - Intel / ancien macOS : [MacPorts](https://www.macports.org), puis `sudo port install ntfs-3g` (installe aussi macFUSE).
-   - Autrement : Homebrew, puis `brew install gromgit/fuse/ntfs-3g-mac`.
-2. **macFUSE** autorisé dans *Réglages Système > Confidentialité et sécurité* (redémarrage nécessaire). Avec MacPorts, il faut aussi lancer :
+1. **ntfs-3g**:
+   - Intel / older macOS: [MacPorts](https://www.macports.org), then `sudo port install ntfs-3g` (this also installs macFUSE).
+   - Otherwise: Homebrew, then `brew install gromgit/fuse/ntfs-3g-mac`.
+2. **macFUSE** allowed in *System Settings > Privacy & Security* (a restart is required). With MacPorts you also need:
    `sudo ln -fsn /opt/local/Library/Filesystems/macfuse.fs /Library/Filesystems/macfuse.fs`
 
 ## Installation
 
 ```
-git clone https://github.com/plage84/ntfs-auto-mac.git
-cd ntfs-auto-mac
+git clone https://github.com/plage84/ntfs-auto-macintel.git
+cd ntfs-auto-macintel
 ./install.sh
 ```
 
-Puis, **une seule fois**, dans *Réglages Système > Confidentialité et sécurité > Accès complet au disque*, ajoute (bouton **+**, puis ⌘⇧G pour saisir le chemin) :
+Then, **once**, in *System Settings > Privacy & Security > Full Disk Access*, add (click **+**, then press ⌘⇧G to type the path):
 
-- `ntfs-3g` (par exemple `/opt/local/bin/ntfs-3g`)
+- `ntfs-3g` (for example `/opt/local/bin/ntfs-3g`)
 - `/bin/bash`
 
-Sans cela, le journal affiche `Operation not permitted`. Donner l'accès complet au disque à `bash` est large : il s'applique à tous les scripts bash lancés par le système. À toi de juger si cela te convient.
+Without this, the log shows `Operation not permitted`. Granting Full Disk Access to `bash` is broad: it applies to every bash script run by the system. Decide whether that is acceptable for you.
 
-## Utilisation
+## Usage
 
-Branche le disque, attends 20 secondes. Journal : `cat /var/log/ntfs-auto.log`.
+Plug in the drive and wait about 20 seconds. Log: `cat /var/log/ntfs-auto.log`.
 
-Quelques conseils :
-- Éjecte toujours le disque avant de le débrancher.
-- Sous Windows, désactive le « démarrage rapide », sinon le disque reste en hibernation et ntfs-3g refuse l'écriture. En cas de disque « sale » : `chkdsk` sous Windows, ou `sudo ntfsfix /dev/diskXsY`.
+Tips:
+- Always eject the drive before unplugging it.
+- On Windows, turn off "Fast Startup", otherwise the drive stays hibernated and ntfs-3g refuses to write. For a "dirty" drive: run `chkdsk` on Windows, or `sudo ntfsfix /dev/diskXsY`.
 
-## Désinstallation
+## Uninstall
 
 ```
 ./uninstall.sh
 ```
 
-Pense à retirer les lignes ajoutées dans `/etc/fstab` (`sudo vifs`).
+Remember to remove the lines the script added to `/etc/fstab` (`sudo vifs`).
 
-## Limites connues
+## Known limitations
 
-- Le journal grossit (messages répétitifs de macFUSE) : `sudo truncate -s 0 /var/log/ntfs-auto.log`.
-- Les avertissements `objc … implemented in both` dans le journal viennent de deux copies de macFUSE visibles par le système. Ils n'ont pas empêché le montage sur la machine de test.
-- BitLocker n'est pas pris en charge.
-- Cela modifie `/etc/fstab` : relis le script avant de l'installer.
+- The log grows (repetitive macFUSE messages): `sudo truncate -s 0 /var/log/ntfs-auto.log`.
+- The `objc … implemented in both` warnings in the log come from two copies of macFUSE being visible to the system. They did not prevent mounting on the test machine.
+- BitLocker is not supported.
+- This modifies `/etc/fstab`: read the script before installing it.
 
-## Licence
+## License
 
 MIT
