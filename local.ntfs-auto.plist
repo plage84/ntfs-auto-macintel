@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>local.ntfs-auto</string>
+<key>ProgramArguments</key><array><string>/usr/local/bin/ntfs-auto.sh</string></array>
+<key>RunAtLoad</key><true/>
+<key>KeepAlive</key><true/>
+<key>StandardOutPath</key><string>/var/log/ntfs-auto.log</string>
+<key>StandardErrorPath</key><string>/var/log/ntfs-auto.log</string>
+</dict></plist>
