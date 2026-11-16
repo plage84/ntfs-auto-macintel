@@ -1,13 +1,13 @@
 #!/bin/bash
-# ntfs-auto : monte automatiquement les disques NTFS en lecture-écriture avec ntfs-3g (macFUSE).
-# Lancé en continu par launchd (voir local.ntfs-auto.plist). Journal : /var/log/ntfs-auto.log
+# ntfs-auto: automatically mounts NTFS drives read-write with ntfs-3g (macFUSE).
+# Run continuously by launchd (see local.ntfs-auto.plist). Log: /var/log/ntfs-auto.log
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/local/bin:/usr/local/bin:/opt/homebrew/bin
 LOG=/var/log/ntfs-auto.log
 TRIES=""; MOUNTED=""; EJECTED=""
-echo "$(date) service démarré" >> "$LOG"
+echo "$(date) service started" >> "$LOG"
 while true; do
   list=$(diskutil list | awk '/Windows_NTFS|Microsoft Basic Data/ {print $NF}')
-  # oublier les disques éjectés qui ont été débranchés
+  # forget ejected drives once they have been unplugged
   new=""
   for e in $EJECTED; do echo "$list" | grep -qx "$e" && new="$new $e"; done
   EJECTED="$new"
@@ -16,37 +16,37 @@ while true; do
     d="/dev/$id"
     case " $EJECTED " in *" $id "*) continue;; esac
     info=$(diskutil info "$d" 2>/dev/null) || continue
-    # on ignore exFAT / FAT (même type de partition que NTFS)
+    # skip exFAT / FAT (same partition type as NTFS)
     echo "$info" | grep -i "Personality" | grep -qi "fat" && continue
     found=1
-    # empêche macOS de remonter ce disque tout seul (une ligne fstab par disque)
+    # stop macOS from auto-mounting this drive again (one fstab line per drive)
     uuid=$(echo "$info" | awk -F': +' '/Volume UUID/ {print $2}')
     if [ -n "$uuid" ] && ! grep -q "UUID=$uuid" /etc/fstab 2>/dev/null; then
       echo "UUID=$uuid none ntfs rw,noauto" >> /etc/fstab
-      echo "$(date) fstab: ajout du disque $uuid" >> "$LOG"
+      echo "$(date) fstab: added drive $uuid" >> "$LOG"
     fi
     if pgrep -f "ntfs-3g $d " >/dev/null; then
-      # déjà monté par ntfs-3g : on retire un éventuel doublon en lecture seule de macOS
+      # already mounted by ntfs-3g: remove any read-only duplicate mounted by macOS
       mount | sed -n "s#^ntfs://$id/.* on \(.*\) (lifs.*#\1#p" | while read -r mp; do
-        echo "$(date) retrait du montage lecture seule: $mp" >> "$LOG"
+        echo "$(date) removing read-only duplicate mount: $mp" >> "$LOG"
         diskutil unmount "$mp" >> "$LOG" 2>&1
       done
       continue
     fi
-    # le montage ntfs-3g a disparu alors que le disque est branché : éjection par l'utilisateur
+    # the ntfs-3g mount is gone but the drive is still plugged in: the user ejected it
     case " $MOUNTED " in *" $id "*)
-      echo "$(date) $id éjecté par l'utilisateur: éjection du disque" >> "$LOG"
+      echo "$(date) $id ejected by the user: ejecting the disk" >> "$LOG"
       diskutil eject "/dev/${id%s[0-9]*}" >> "$LOG" 2>&1
       MOUNTED=$(echo " $MOUNTED " | sed "s/ $id / /")
       EJECTED="$EJECTED $id"
       continue;;
     esac
-    # pas plus de 3 tentatives ratées par disque
+    # at most 3 failed attempts per drive
     n=$(echo "$TRIES" | grep -o "$id;" | wc -l | tr -d ' ')
     [ "$n" -ge 3 ] && continue
     name=$(echo "$info" | awk -F': +' '/Volume Name/ {print $2}')
     name=${name:-NTFS-$id}
-    echo "$(date) montage de $d ($name)" >> "$LOG"
+    echo "$(date) mounting $d ($name)" >> "$LOG"
     diskutil unmount "$d" >> "$LOG" 2>&1
     mkdir -p "/Volumes/$name"
     ntfs-3g "$d" "/Volumes/$name" -o local,allow_other,auto_xattr,no_detach,volname="$name" </dev/null >> "$LOG" 2>&1 &
@@ -54,7 +54,7 @@ while true; do
     if mount | grep -q "^$d on"; then
       MOUNTED="$MOUNTED $id"
     else
-      echo "$(date) échec du montage de $d" >> "$LOG"
+      echo "$(date) mount failed for $d" >> "$LOG"
       TRIES="$TRIES$id;"
     fi
   done
